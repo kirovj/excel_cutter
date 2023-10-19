@@ -1,5 +1,6 @@
 use calamine::{open_workbook, DataType, Reader, Xlsx};
 use rust_xlsxwriter::{Workbook, XlsxError};
+use std::env;
 use std::error::Error;
 use std::thread;
 
@@ -20,11 +21,11 @@ fn row_to_vec(row: &[DataType]) -> Vec<String> {
 }
 
 fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn Error>> {
-    println!("Reading {}...", filepath);
-    let mut excel: Xlsx<_> = open_workbook(filepath).expect("Cannot open file");
+    println!("读取 {}...", filepath);
+    let mut excel: Xlsx<_> = open_workbook(filepath).expect("打开文件失败");
     let mut handlers = Vec::new();
     if let Some(Ok(r)) = excel.worksheet_range("Sheet1") {
-        println!("start cutting {}...", filepath);
+        println!("开始切割 {}...", filepath);
         let mut datas: Vec<Vec<String>> = Vec::new();
         let mut header: Vec<String> = Vec::new();
         let mut num = 0;
@@ -55,11 +56,12 @@ fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn
     for handler in handlers {
         let _ = handler.join().unwrap();
     }
+    println!("切割完成！");
     Ok(())
 }
 
 fn write_excel(filepath: String, datas: Vec<Vec<String>>) -> Result<(), XlsxError> {
-    println!("cut {}, {} rows", filepath, datas.len());
+    println!("生成 {}, {} 行", filepath, datas.len());
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
     let mut row = 0;
@@ -76,19 +78,25 @@ fn write_excel(filepath: String, datas: Vec<Vec<String>>) -> Result<(), XlsxErro
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
-    let _limit = 3000;
-    let path = "examples/a.xlsx";
+    let args: Vec<String> = env::args().collect();
+    assert!(
+        args.len() == 3,
+        "参数不够， example: `excel_cutter.exe a.xlsx 3000`"
+    );
+
+    let path = args[1].as_str();
+    let _limit: usize = args[2].parse().expect("行数应该是数字");
     let path_string = String::from(path);
     let mut split = path_string.split(".");
-    let _name = split.next().expect("filename is empty.");
+    let _name = split.next().expect("文件名为空");
     match split.next() {
         Some("xls") | Some("xlsx") => process_excel(path, _name, _limit),
         Some(_type) => {
-            println!("file type `{}` is not support!", _type);
+            println!("文件类型 `{}` 不支持", _type);
             Ok(())
         }
         _ => {
-            println!("file type is empty.");
+            println!("文件类型为空");
             Ok(())
         }
     }
