@@ -1,27 +1,42 @@
 use calamine::{open_workbook, DataType, Reader, Xlsx};
 use rust_xlsxwriter::{Workbook, XlsxError};
 use std::error::Error;
-use std::thread;
+
+fn push_header(datas: &mut Vec<Vec<String>>, header: &Vec<String>) {
+    let mut _header = Vec::new();
+    for h in header {
+        _header.push(String::from(h));
+    }
+    datas.push(_header);
+}
+
+fn row_to_vec(row: &[DataType]) -> Vec<String> {
+    let mut data = Vec::new();
+    for ele in row {
+        data.push(String::from(ele.get_string().unwrap_or("")));
+    }
+    data
+}
 
 fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn Error>> {
     let mut excel: Xlsx<_> = open_workbook(filepath).expect("Cannot open file");
 
     // Read whole worksheet data and provide some statistics
     if let Some(Ok(r)) = excel.worksheet_range("Sheet1") {
-        let mut datas: Vec<&[DataType]> = Vec::new();
-        let mut headers: &[DataType] = &vec![];
+        let mut datas: Vec<Vec<String>> = Vec::new();
+        let mut header: Vec<String> = Vec::new();
         let mut num = 0;
         for (index, row) in r.rows().enumerate() {
             if index == 0 {
-                headers = row;
-                datas.push(headers);
+                header = row_to_vec(row);
+                push_header(&mut datas, &header);
             } else if index % limit == 0 {
                 let _ = write_excel(format!("{}_{}.xlsx", name, num), datas);
                 num += 1;
                 datas = Vec::new();
-                datas.push(headers);
+                push_header(&mut datas, &header);
             } else {
-                datas.push(row);
+                datas.push(row_to_vec(row));
             }
         }
         if datas.len() > 0 {
@@ -31,7 +46,7 @@ fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn
     Ok(())
 }
 
-fn write_excel(filepath: String, datas: Vec<&[DataType]>) -> Result<(), XlsxError> {
+fn write_excel(filepath: String, datas: Vec<Vec<String>>) -> Result<(), XlsxError> {
     println!("start writing {}, {} rows", filepath, datas.len());
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
@@ -39,7 +54,7 @@ fn write_excel(filepath: String, datas: Vec<&[DataType]>) -> Result<(), XlsxErro
     for data in datas {
         let mut col = 0;
         for d in data {
-            worksheet.write(row, col, d.get_string().unwrap_or(""))?;
+            worksheet.write(row, col, d.as_str())?;
             col += 1;
         }
         row += 1;
