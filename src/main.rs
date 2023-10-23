@@ -34,16 +34,17 @@ fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn
             if index == 0 {
                 header = row_to_vec(row);
                 push_header(&mut datas, &header);
-            } else if index % limit == 0 {
-                let _name = String::from(name);
-                handlers.push(thread::spawn(move || {
-                    write_excel(format!("{}_{}.xlsx", _name, num), datas)
-                }));
-                num += 1;
-                datas = Vec::new();
-                push_header(&mut datas, &header);
             } else {
                 datas.push(row_to_vec(row));
+                if index % limit == 0 {
+                    let _name = String::from(name);
+                    handlers.push(thread::spawn(move || {
+                        write_excel(format!("{}_{}.xlsx", _name, num), datas)
+                    }));
+                    num += 1;
+                    datas = Vec::new();
+                    push_header(&mut datas, &header);
+                }
             }
         }
         if datas.len() > 0 {
@@ -61,7 +62,7 @@ fn process_excel(filepath: &str, name: &str, limit: usize) -> Result<(), Box<dyn
 }
 
 fn write_excel(filepath: String, datas: Vec<Vec<String>>) -> Result<(), XlsxError> {
-    println!("生成 {}, {} 行", filepath, datas.len());
+    println!("生成 {}, {} 行", filepath, datas.len() - 1);
     let mut workbook = Workbook::new();
     let worksheet = workbook.add_worksheet();
     let mut row = 0;
